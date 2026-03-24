@@ -1,0 +1,5 @@
+{
+  "name": "GeoMapper AI",
+  "description": "Geological Mapping and Landmark Detection Platform powered by AI and geospatial analysis.",
+  "requestFramePermissions": ["geolocation"]
+}
