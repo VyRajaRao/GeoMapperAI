@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "AnalysisReport": {
+      "title": "Analysis Report",
+      "description": "A geological analysis report for a specific location.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user ID of the report owner." },
+        "latitude": { "type": "number", "description": "Latitude of the location." },
+        "longitude": { "type": "number", "description": "Longitude of the location." },
+        "elevation": { "type": "number", "description": "Elevation in meters." },
+        "terrainType": { "type": "string", "description": "Type of terrain (e.g., Mountainous)." },
+        "slope": { "type": "number", "description": "Slope in degrees." },
+        "riskLevel": { "type": "string", "enum": ["Low", "Moderate", "High"], "description": "Risk level assessment." },
+        "landmarks": { "type": "array", "items": { "type": "string" }, "description": "List of detected landmarks." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation." }
+      },
+      "required": ["uid", "latitude", "longitude", "elevation", "terrainType", "slope", "riskLevel", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "AnalysisReport",
+      "description": "Collection of geological analysis reports."
+    }
+  }
+}
