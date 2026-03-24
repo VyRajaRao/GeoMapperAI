@@ -292,7 +292,6 @@ export default function App() {
           <>
             <NavigationBar 
               user={user} 
-              onLogin={handleLogin} 
               onLogout={handleLogout} 
               activeTab={activeTab}
               setActiveTab={setActiveTab}
