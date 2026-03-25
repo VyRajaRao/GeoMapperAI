@@ -1,3 +1,6 @@
+import { spatialCache } from './spatialCacheService';
+import { ApiClient } from './apiClient';
+
 export interface Landmark {
   id: number;
   lat: number;
@@ -21,33 +24,11 @@ export interface OverpassResponse {
   }>;
 }
 
-const CACHE_PREFIX = 'overpass_cache_';
-const CACHE_EXPIRATION = 24 * 60 * 60 * 1000; // 24 hours
-
-const getCacheKey = (lat: number, lng: number, radius: number) => {
-  // Round to 3 decimal places (~110m precision) to improve cache hits for nearby clicks
-  const roundedLat = lat.toFixed(3);
-  const roundedLng = lng.toFixed(3);
-  return `${CACHE_PREFIX}${roundedLat}_${roundedLng}_${radius}`;
-};
-
 export const fetchLandmarks = async (lat: number, lng: number, radius: number = 5000): Promise<Landmark[]> => {
-  const cacheKey = getCacheKey(lat, lng, radius);
-  
-  // Try to load from cache first
-  try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < CACHE_EXPIRATION) {
-        console.log('Serving landmarks from cache:', cacheKey);
-        return data;
-      }
-      // Expired cache
-      localStorage.removeItem(cacheKey);
-    }
-  } catch (e) {
-    console.warn('Cache read error:', e);
+  // 1. Check Cache
+  const cached = await spatialCache.get<Landmark[]>(lat, lng, 'landmarks');
+  if (cached) {
+    return cached;
   }
 
   const query = `
@@ -60,55 +41,43 @@ export const fetchLandmarks = async (lat: number, lng: number, radius: number = 
     out center;
   `;
 
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
+  const endpoints = [
+    'https://overpass-api.de/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter'
+  ];
 
-  try {
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error('Overpass API request failed');
-    }
-    const data: OverpassResponse = await response.json();
+  let lastError: Error | null = null;
 
-    const landmarks = data.elements.map((el) => ({
-      id: el.id,
-      lat: el.lat ?? el.center?.lat ?? 0,
-      lng: el.lon ?? el.center?.lon ?? 0,
-      name: el.tags?.name ?? 'Unnamed Feature',
-      type: el.tags?.natural ?? 'unknown',
-      tags: el.tags ?? {},
-    })).filter(l => l.lat !== 0 && l.lng !== 0);
+  for (const endpoint of endpoints) {
+    const url = `${endpoint}?data=${encodeURIComponent(query)}`;
 
-    // Store in cache
     try {
-      localStorage.setItem(cacheKey, JSON.stringify({
-        data: landmarks,
-        timestamp: Date.now()
-      }));
-    } catch (e) {
-      // Handle quota exceeded or other storage errors gracefully
-      console.warn('Cache write error (likely quota exceeded):', e);
-      // Optional: Clear old cache entries if quota is exceeded
-      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-        Object.keys(localStorage)
-          .filter(key => key.startsWith(CACHE_PREFIX))
-          .forEach(key => localStorage.removeItem(key));
-      }
+      const data = await ApiClient.get<OverpassResponse>(url, {
+        timeout: 15000,
+        retries: 1, // Low retries per endpoint because we have multiple endpoints
+        validate: (d) => !!d.elements
+      });
+
+      const landmarks = data.elements.map((el) => ({
+        id: el.id,
+        lat: el.lat ?? el.center?.lat ?? 0,
+        lng: el.lon ?? el.center?.lon ?? 0,
+        name: el.tags?.name ?? 'Unnamed Feature',
+        type: el.tags?.natural ?? 'unknown',
+        tags: el.tags ?? {},
+      })).filter(l => l.lat !== 0 && l.lng !== 0);
+
+      // Store in cache
+      await spatialCache.set(lat, lng, 'landmarks', landmarks);
+
+      return landmarks;
+    } catch (error) {
+      console.warn(`[OverpassService] Failed to fetch from ${endpoint}:`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
     }
-
-    return landmarks;
-  } catch (error) {
-    console.error('Error fetching landmarks from Overpass:', error);
-    
-    // Fallback to expired cache if available during offline/error
-    try {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { data } = JSON.parse(cached);
-        console.log('Serving expired landmarks from cache due to network error:', cacheKey);
-        return data;
-      }
-    } catch (e) { /* ignore */ }
-
-    return [];
   }
+
+  console.error('[OverpassService] All Overpass API endpoints failed:', lastError);
+  return [];
 };

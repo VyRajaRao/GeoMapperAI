@@ -30,6 +30,7 @@ interface SidebarProps {
   onToggle: () => void;
   lat: string;
   lng: string;
+  resolvedPlaceName: string | null;
   onAnalyze: (lat?: string, lng?: string) => void;
   isAnalyzing: boolean;
   data: AnalysisData;
@@ -57,6 +58,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   onToggle,
   lat, 
   lng, 
+  resolvedPlaceName,
   onAnalyze, 
   isAnalyzing, 
   data,
@@ -111,10 +113,9 @@ const Sidebar: React.FC<SidebarProps> = ({
       animate={{ 
         width: isOpen ? 380 : 0,
         opacity: isOpen ? 1 : 0,
-        x: isOpen ? 0 : -20
       }}
       transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-      className={`bg-[#0A0F14] flex flex-col shrink-0 z-20 relative overflow-hidden transition-shadow duration-300 ${isOpen ? 'border-r border-[#1F2937] shadow-2xl' : 'border-r-0 shadow-none'}`}
+      className={`bg-[#0A0F14] flex flex-col shrink-0 z-20 relative overflow-hidden ${isOpen ? 'border-r border-[#1F2937] shadow-2xl' : 'border-r-0 shadow-none'}`}
     >
       {/* Decorative Background Elements */}
       <div className="absolute top-0 right-0 w-64 h-64 bg-[#2EC4B6]/5 blur-[100px] -mr-32 -mt-32 pointer-events-none" />
@@ -145,6 +146,16 @@ const Sidebar: React.FC<SidebarProps> = ({
         
         {/* Location & Analysis Trigger */}
         <section className="space-y-4">
+          {resolvedPlaceName && (
+            <div className="p-4 bg-[#2EC4B6]/5 border border-[#2EC4B6]/20 rounded-2xl relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-1 h-full bg-[#2EC4B6]" />
+              <p className="text-[7px] font-black text-[#2EC4B6] uppercase tracking-[0.3em] mb-1.5">Identified Location</p>
+              <h4 className="text-xs font-black text-white leading-tight group-hover:text-[#2EC4B6] transition-colors line-clamp-2 italic">
+                {resolvedPlaceName}
+              </h4>
+            </div>
+          )}
+
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 text-[#2EC4B6]">
               <MapPin className="w-3.5 h-3.5" />
@@ -162,6 +173,46 @@ const Sidebar: React.FC<SidebarProps> = ({
               <p className="text-xs font-mono font-black text-white group-hover:text-[#2EC4B6] transition-colors">{parseFloat(lng).toFixed(6)}°</p>
             </div>
           </div>
+
+          {data.weather && (
+            <div className="p-4 bg-[#FF6B35]/5 border border-[#FF6B35]/20 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-[#FF6B35]">
+                  <Sun className="w-3.5 h-3.5" />
+                  <h3 className="text-[9px] font-black uppercase tracking-[0.2em]">Local Weather</h3>
+                </div>
+                <span className="text-[8px] font-black text-[#FF6B35] uppercase tracking-widest bg-[#FF6B35]/10 px-2 py-0.5 rounded-full">
+                  {data.weather.condition}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Temp</p>
+                  <p className="text-sm font-black text-white">{data.weather.temperature}°C</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Precip</p>
+                  <p className="text-sm font-black text-white">{data.weather.precipitation}mm</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Wind</p>
+                  <p className="text-sm font-black text-white">{data.weather.windSpeed}km/h</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Pressure</p>
+                  <p className="text-sm font-black text-white">{data.weather.pressure}hPa</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Humidity</p>
+                  <p className="text-sm font-black text-white">{data.weather.humidity}%</p>
+                </div>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] font-black text-[#4B5563] uppercase tracking-widest">Visibility</p>
+                  <p className="text-sm font-black text-white">{data.weather.visibility}m</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           <button 
             onClick={() => onAnalyze(lat, lng)}

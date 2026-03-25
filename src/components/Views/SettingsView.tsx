@@ -1,54 +1,79 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
-  Settings, 
   User, 
-  Shield, 
-  Bell, 
   Globe, 
   Database, 
-  Key, 
   LogOut, 
-  ChevronRight, 
   Moon, 
   Sun,
   Cpu,
-  Zap,
-  HardDrive
+  Check,
+  Mail,
+  ShieldCheck,
+  Camera,
+  Save,
+  Loader2,
+  Settings
 } from 'lucide-react';
+import { User as FirebaseUser, updateProfile } from 'firebase/auth';
+import { motion, AnimatePresence } from 'motion/react';
 
-const SettingsView: React.FC = () => {
-  const sections = [
-    { 
-      title: 'Account & Security', 
-      icon: Shield, 
-      color: '#2EC4B6',
-      items: [
-        { label: 'Profile Information', desc: 'Update your name, email, and avatar.', icon: User },
-        { label: 'Two-Factor Authentication', desc: 'Add an extra layer of security to your account.', icon: Key, status: 'Enabled' },
-        { label: 'Privacy Settings', desc: 'Control who can see your shared reports.', icon: Shield },
-      ]
-    },
-    { 
-      title: 'Geospatial Engine', 
-      icon: Globe, 
-      color: '#A855F7',
-      items: [
-        { label: 'Mapbox API Configuration', desc: 'Manage your Mapbox access tokens and styles.', icon: Globe },
-        { label: 'Gemini AI Integration', desc: 'Configure AI model parameters and data sources.', icon: Zap, status: 'v3.1 Pro' },
-        { label: 'Data Retention Policy', desc: 'Set how long your analysis data is stored.', icon: Database },
-      ]
-    },
-    { 
-      title: 'System Preferences', 
-      icon: Settings, 
-      color: '#FF6B35',
-      items: [
-        { label: 'Interface Theme', desc: 'Switch between dark, light, and system themes.', icon: Moon, status: 'Dark' },
-        { label: 'Notification Center', desc: 'Manage your email and push notifications.', icon: Bell },
-        { label: 'Hardware Acceleration', desc: 'Optimize performance for 3D terrain rendering.', icon: Cpu, status: 'On' },
-      ]
+interface SettingsViewProps {
+  user: FirebaseUser | null;
+  onLogout: () => void;
+  theme: 'dark' | 'light';
+  setTheme: (theme: 'dark' | 'light') => void;
+  hardwareAcceleration: boolean;
+  setHardwareAcceleration: (on: boolean) => void;
+  dataRetention: string;
+  setDataRetention: (policy: string) => void;
+}
+
+const SettingsView: React.FC<SettingsViewProps> = ({
+  user,
+  onLogout,
+  theme,
+  setTheme,
+  hardwareAcceleration,
+  setHardwareAcceleration,
+  dataRetention,
+  setDataRetention
+}) => {
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [photoURL, setPhotoURL] = useState(user?.photoURL || '');
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [mapboxTokenStatus, setMapboxTokenStatus] = useState<'loading' | 'active' | 'error'>('loading');
+
+  useEffect(() => {
+    const checkToken = async () => {
+      try {
+        const response = await fetch('/api/mapbox-token');
+        if (response.ok) setMapboxTokenStatus('active');
+        else setMapboxTokenStatus('error');
+      } catch {
+        setMapboxTokenStatus('error');
+      }
+    };
+    checkToken();
+  }, []);
+
+  const handleUpdateProfile = async () => {
+    if (!user) return;
+    setIsUpdatingProfile(true);
+    try {
+      await updateProfile(user, {
+        displayName,
+        photoURL
+      });
+      setUpdateSuccess(true);
+      setTimeout(() => setUpdateSuccess(false), 3000);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+    } finally {
+      setIsUpdatingProfile(false);
     }
-  ];
+  };
 
   return (
     <div className="flex-1 overflow-y-auto p-8 space-y-10 bg-[#0A0F14] custom-scrollbar">
@@ -57,95 +82,204 @@ const SettingsView: React.FC = () => {
           <h2 className="text-3xl font-black tracking-tighter uppercase italic text-white">System Settings</h2>
           <p className="text-sm text-[#FF6B35] font-bold uppercase tracking-widest mt-1">Configure your Geological Intelligence Platform</p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-[#111827] border border-[#FF6B35]/30 rounded-xl text-[11px] font-black uppercase tracking-widest text-[#FF6B35] hover:bg-[#FF6B35]/10 transition-all">
+        <button 
+          onClick={onLogout}
+          className="flex items-center gap-2 px-6 py-3 bg-[#111827] border border-[#FF6B35]/30 rounded-xl text-[11px] font-black uppercase tracking-widest text-[#FF6B35] hover:bg-[#FF6B35]/10 transition-all"
+        >
           <LogOut className="w-4 h-4" />
           Sign Out
         </button>
       </div>
 
-      {/* Settings Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left Column - Navigation */}
+        {/* Left Column - Main Settings */}
         <div className="lg:col-span-2 space-y-8">
-          {sections.map((section, i) => (
-            <div key={i} className="space-y-4">
-              <div className="flex items-center gap-3 px-2">
-                <div className="p-2 bg-[#111827] rounded-lg border border-[#1F2937]">
-                  <section.icon className="w-5 h-5" style={{ color: section.color }} />
-                </div>
-                <h3 className="text-sm font-black uppercase tracking-widest text-white">{section.title}</h3>
+          
+          {/* Account Section */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="p-2 bg-[#111827] rounded-lg border border-[#1F2937]">
+                <User className="w-5 h-5 text-[#2EC4B6]" />
               </div>
-              
-              <div className="bg-[#111827] border border-[#1F2937] rounded-3xl overflow-hidden">
-                {section.items.map((item, j) => (
-                  <button key={j} className="w-full flex items-center justify-between p-6 hover:bg-[#0D141C] border-b border-[#1F2937] last:border-0 transition-all group">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 bg-[#0A0F14] rounded-xl border border-[#1F2937] group-hover:border-[#2EC4B6]/30 transition-all">
-                        <item.icon className="w-5 h-5 text-[#9CA3AF]" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-bold text-white">{item.label}</p>
-                        <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wider">{item.desc}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      {item.status && (
-                        <span className="text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-[#0A0F14] border border-[#1F2937] rounded-full text-[#2EC4B6]">
-                          {item.status}
-                        </span>
-                      )}
-                      <ChevronRight className="w-4 h-4 text-[#4B5563] group-hover:text-white transition-all" />
-                    </div>
-                  </button>
-                ))}
-              </div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-white">Account Profile</h3>
             </div>
-          ))}
-        </div>
 
-        {/* Right Column - System Info */}
-        <div className="space-y-8">
-          <div className="p-8 bg-gradient-to-br from-[#111827] to-[#0A0F14] border border-[#1F2937] rounded-3xl space-y-8">
-            <div className="flex items-center gap-3">
-              <HardDrive className="w-5 h-5 text-[#2EC4B6]" />
-              <h3 className="text-sm font-black uppercase tracking-widest text-white">System Resources</h3>
-            </div>
-            
-            <div className="space-y-6">
-              {[
-                { label: 'Storage Usage', value: '12.4 GB / 50 GB', percent: 25, color: '#2EC4B6' },
-                { label: 'API Quota', value: '842 / 1,000 req', percent: 84, color: '#FF6B35' },
-                { label: 'Memory Usage', value: '1.2 GB / 4 GB', percent: 30, color: '#A855F7' },
-              ].map((resource, i) => (
-                <div key={i} className="space-y-2">
-                  <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                    <span className="text-[#9CA3AF]">{resource.label}</span>
-                    <span className="text-white">{resource.value}</span>
+            <div className="bg-[#111827] border border-[#1F2937] rounded-3xl p-8 space-y-6">
+              <div className="flex flex-col md:flex-row gap-8 items-start">
+                <div className="relative group">
+                  <div className="w-24 h-24 rounded-2xl bg-[#0A0F14] border-2 border-[#1F2937] overflow-hidden flex items-center justify-center">
+                    {photoURL ? (
+                      <img src={photoURL} alt="Avatar" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : (
+                      <User className="w-10 h-10 text-[#4B5563]" />
+                    )}
                   </div>
-                  <div className="h-1.5 bg-[#0A0F14] rounded-full overflow-hidden">
-                    <div 
-                      className="h-full rounded-full transition-all duration-1000" 
-                      style={{ width: `${resource.percent}%`, backgroundColor: resource.color }}
+                  <div className="absolute -bottom-2 -right-2 p-2 bg-[#2EC4B6] rounded-lg shadow-lg cursor-pointer hover:scale-110 transition-transform">
+                    <Camera className="w-4 h-4 text-[#0A0F14]" />
+                  </div>
+                </div>
+
+                <div className="flex-1 space-y-4 w-full">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#4B5563]">Display Name</label>
+                      <input 
+                        type="text" 
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        className="w-full bg-[#0A0F14] border border-[#1F2937] rounded-xl px-4 py-3 text-sm text-white focus:border-[#2EC4B6] outline-none transition-all"
+                        placeholder="Your Name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-widest text-[#4B5563]">Email Address</label>
+                      <div className="w-full bg-[#0A0F14]/50 border border-[#1F2937] rounded-xl px-4 py-3 text-sm text-[#4B5563] flex items-center gap-2">
+                        <Mail className="w-4 h-4" />
+                        {user?.email}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-[#4B5563]">Avatar URL</label>
+                    <input 
+                      type="text" 
+                      value={photoURL}
+                      onChange={(e) => setPhotoURL(e.target.value)}
+                      className="w-full bg-[#0A0F14] border border-[#1F2937] rounded-xl px-4 py-3 text-sm text-white focus:border-[#2EC4B6] outline-none transition-all"
+                      placeholder="https://example.com/avatar.jpg"
                     />
                   </div>
+                  
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-[#2EC4B6] uppercase tracking-wider">
+                      <ShieldCheck className="w-4 h-4" />
+                      Verified Account
+                    </div>
+                    <button 
+                      onClick={handleUpdateProfile}
+                      disabled={isUpdatingProfile}
+                      className="flex items-center gap-2 px-6 py-2.5 bg-[#2EC4B6] text-[#0A0F14] rounded-xl text-[11px] font-black uppercase tracking-widest hover:shadow-[0_0_15px_#2EC4B6] transition-all disabled:opacity-50"
+                    >
+                      {isUpdatingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                      {updateSuccess ? 'Updated!' : 'Save Changes'}
+                    </button>
+                  </div>
                 </div>
-              ))}
-            </div>
-
-            <div className="p-4 bg-[#0A0F14] border border-[#1F2937] rounded-2xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-[#2EC4B6]/10 rounded-xl flex items-center justify-center">
-                <Zap className="w-5 h-5 text-[#2EC4B6]" />
-              </div>
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-white">Pro Plan Active</p>
-                <p className="text-[9px] font-bold text-[#4B5563] uppercase tracking-wider">Next billing: Apr 23, 2026</p>
               </div>
             </div>
-          </div>
+          </section>
 
-          <div className="p-8 bg-[#111827] border border-[#1F2937] rounded-3xl space-y-4">
+          {/* Map & Engine Section */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="p-2 bg-[#111827] rounded-lg border border-[#1F2937]">
+                <Globe className="w-5 h-5 text-[#A855F7]" />
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-white">Map & Engine</h3>
+            </div>
+
+            <div className="bg-[#111827] border border-[#1F2937] rounded-3xl divide-y divide-[#1F2937]">
+              {/* Mapbox Token */}
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-[#0A0F14] rounded-xl border border-[#1F2937]">
+                    <Globe className="w-5 h-5 text-[#9CA3AF]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Mapbox API Configuration</p>
+                    <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wider">Status of your Mapbox access token</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className={`text-[10px] font-black uppercase tracking-widest px-3 py-1 bg-[#0A0F14] border border-[#1F2937] rounded-full ${mapboxTokenStatus === 'active' ? 'text-[#2EC4B6]' : 'text-[#FF6B35]'}`}>
+                    {mapboxTokenStatus === 'active' ? 'Token Active' : mapboxTokenStatus === 'loading' ? 'Checking...' : 'Token Error'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Hardware Acceleration */}
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-[#0A0F14] rounded-xl border border-[#1F2937]">
+                    <Cpu className="w-5 h-5 text-[#9CA3AF]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Hardware Acceleration</p>
+                    <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wider">Optimize performance for 3D terrain rendering</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setHardwareAcceleration(!hardwareAcceleration)}
+                  className={`w-12 h-6 rounded-full transition-all relative ${hardwareAcceleration ? 'bg-[#2EC4B6]' : 'bg-[#1F2937]'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${hardwareAcceleration ? 'left-7' : 'left-1'}`} />
+                </button>
+              </div>
+
+              {/* Data Retention */}
+              <div className="p-6 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-[#0A0F14] rounded-xl border border-[#1F2937]">
+                    <Database className="w-5 h-5 text-[#9CA3AF]" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-white">Data Retention Policy</p>
+                    <p className="text-[10px] font-bold text-[#4B5563] uppercase tracking-wider">Set how long your analysis data is stored locally</p>
+                  </div>
+                </div>
+                <select 
+                  value={dataRetention}
+                  onChange={(e) => setDataRetention(e.target.value)}
+                  className="bg-[#0A0F14] border border-[#1F2937] rounded-lg px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-[#2EC4B6] outline-none"
+                >
+                  <option value="7 days">7 Days</option>
+                  <option value="30 days">30 Days</option>
+                  <option value="90 days">90 Days</option>
+                  <option value="Indefinite">Indefinite</option>
+                </select>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        {/* Right Column - Preferences & Info */}
+        <div className="space-y-8">
+          {/* Preferences Section */}
+          <section className="space-y-4">
+            <div className="flex items-center gap-3 px-2">
+              <div className="p-2 bg-[#111827] rounded-lg border border-[#1F2937]">
+                <Settings className="w-5 h-5 text-[#FF6B35]" />
+              </div>
+              <h3 className="text-sm font-black uppercase tracking-widest text-white">Preferences</h3>
+            </div>
+
+            <div className="bg-[#111827] border border-[#1F2937] rounded-3xl p-6 space-y-6">
+              <div className="space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#4B5563]">Interface Theme</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button 
+                    onClick={() => setTheme('dark')}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${theme === 'dark' ? 'bg-[#2EC4B6]/10 border-[#2EC4B6] text-[#2EC4B6]' : 'bg-[#0A0F14] border-[#1F2937] text-[#4B5563] hover:border-[#4B5563]'}`}
+                  >
+                    <Moon className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Dark</span>
+                  </button>
+                  <button 
+                    onClick={() => setTheme('light')}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border transition-all ${theme === 'light' ? 'bg-[#2EC4B6]/10 border-[#2EC4B6] text-[#2EC4B6]' : 'bg-[#0A0F14] border-[#1F2937] text-[#4B5563] hover:border-[#4B5563]'}`}
+                  >
+                    <Sun className="w-4 h-4" />
+                    <span className="text-[10px] font-black uppercase tracking-widest">Light</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* System Info Section */}
+          <div className="p-8 bg-[#111827] border border-[#1F2937] rounded-3xl space-y-6">
             <h3 className="text-[10px] font-black uppercase tracking-widest text-[#4B5563]">About GeoMapper AI</h3>
-            <div className="space-y-2">
+            <div className="space-y-4">
               <div className="flex justify-between text-xs font-bold">
                 <span className="text-[#9CA3AF]">Version</span>
                 <span className="text-white">2.5.0-stable</span>
@@ -159,9 +293,13 @@ const SettingsView: React.FC = () => {
                 <span className="text-white">Enterprise</span>
               </div>
             </div>
-            <button className="w-full py-3 mt-4 border border-[#1F2937] rounded-xl text-[10px] font-black uppercase tracking-widest text-[#9CA3AF] hover:bg-[#0A0F14] transition-all">
-              Check for Updates
-            </button>
+            
+            <div className="pt-4 border-t border-[#1F2937]">
+              <div className="flex items-center gap-3 text-[#2EC4B6]">
+                <Check className="w-4 h-4" />
+                <span className="text-[10px] font-black uppercase tracking-widest">System Up to Date</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

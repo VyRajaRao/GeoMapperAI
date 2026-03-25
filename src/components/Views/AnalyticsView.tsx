@@ -41,15 +41,21 @@ import { Landmark } from '../../services/overpassService';
 interface AnalyticsViewProps {
   data: AnalysisData;
   placeIntelligence: string | null;
+  resolvedPlaceName: string | null;
   landmarks: Landmark[];
   isAnalyzing: boolean;
+  lat: string;
+  lng: string;
 }
 
 const AnalyticsView: React.FC<AnalyticsViewProps> = ({
   data,
   placeIntelligence,
+  resolvedPlaceName,
   landmarks,
-  isAnalyzing
+  isAnalyzing,
+  lat,
+  lng
 }) => {
   // Group landmarks by type for charts
   const landmarkCategories = React.useMemo(() => {
@@ -104,9 +110,21 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({
             </div>
             <h1 className="text-3xl font-black text-white uppercase italic tracking-tighter">Geospatial Intelligence Dashboard</h1>
           </div>
-          <p className="text-[#4B5563] font-bold uppercase tracking-widest text-[10px]">
-            Real-time terrain analysis and risk assessment metrics
-          </p>
+          <div className="flex flex-col gap-1">
+            <p className="text-[#4B5563] font-bold uppercase tracking-widest text-[10px]">
+              Real-time terrain analysis and risk assessment metrics
+            </p>
+            {resolvedPlaceName && (
+              <div className="flex items-center gap-2 mt-1">
+                <div className="px-2 py-0.5 bg-[#2EC4B6]/10 border border-[#2EC4B6]/30 rounded text-[9px] font-black text-[#2EC4B6] uppercase tracking-widest">
+                  Analyzing: {resolvedPlaceName}
+                </div>
+                <div className="text-[9px] font-mono text-[#4B5563] font-bold">
+                  {parseFloat(lat).toFixed(4)}°N, {parseFloat(lng).toFixed(4)}°E
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="flex items-center gap-3">
@@ -126,7 +144,7 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({
         {[
           { label: 'Elevation', value: `${data.elevation}m`, icon: Mountain, color: '#FF6B35', trend: '+12m' },
           { label: 'Avg Slope', value: `${data.slope}°`, icon: Activity, color: '#A855F7', trend: '-2.4°' },
-          { label: 'Risk Index', value: data.riskIndex, icon: ShieldAlert, color: '#EF4444', trend: 'Stable' },
+          { label: 'Risk Index', value: data.weatherAdjustedRiskIndex || data.riskIndex, icon: ShieldAlert, color: '#EF4444', trend: data.weatherAdjustedRiskIndex ? 'Weather Adj' : 'Stable' },
           { label: 'Terrain Score', value: data.terrainClassificationScore, icon: Grid, color: '#2EC4B6', trend: 'Optimized' },
         ].map((metric, i) => (
           <div key={i} className="p-6 bg-[#0D141C] border border-[#1F2937] rounded-3xl group hover:border-[#2EC4B6]/30 transition-all relative overflow-hidden">
@@ -144,6 +162,87 @@ const AnalyticsView: React.FC<AnalyticsViewProps> = ({
           </div>
         ))}
       </div>
+
+      {/* Weather & Environmental Insights */}
+      {data.weather && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 p-8 bg-[#0D141C] border border-[#1F2937] rounded-3xl flex flex-col md:flex-row gap-8 items-center">
+            <div className="flex-1 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-[#FF6B35]/10 rounded-lg">
+                  <Globe className="w-4 h-4 text-[#FF6B35]" />
+                </div>
+                <h3 className="text-xs font-black text-white uppercase tracking-widest">Environmental Risk Classification</h3>
+              </div>
+              <p className="text-2xl font-black text-[#FF6B35] uppercase italic tracking-tighter">
+                {data.environmentalRiskClassification || 'Normal'}
+              </p>
+              <div className="flex gap-4">
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-[#4B5563] uppercase tracking-widest">Rain Impact</p>
+                  <p className="text-sm font-black text-white">{data.rainfallImpactFactor || 0}/10</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-[#4B5563] uppercase tracking-widest">Terrain Stability</p>
+                  <p className="text-sm font-black text-white">{data.terrainStabilityScore || 100}%</p>
+                </div>
+              </div>
+            </div>
+            <div className="w-full md:w-64 grid grid-cols-2 gap-4">
+              {[
+                { label: 'Temp', value: `${data.weather.temperature}°C` },
+                { label: 'Precip', value: `${data.weather.precipitation}mm` },
+                { label: 'Wind', value: `${data.weather.windSpeed}km/h` },
+                { label: 'Humidity', value: `${data.weather.humidity}%` },
+                { label: 'Pressure', value: `${data.weather.pressure}hPa` },
+                { label: 'Cloud Cover', value: `${data.weather.cloudCover}%` },
+                { label: 'Visibility', value: `${data.weather.visibility}m` },
+              ].map((w, i) => (
+                <div key={i} className="p-4 bg-[#0A0F14] border border-[#1F2937] rounded-2xl">
+                  <p className="text-[8px] font-black text-[#4B5563] uppercase tracking-widest mb-1">{w.label}</p>
+                  <p className="text-sm font-black text-white">{w.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="p-8 bg-[#0D141C] border border-[#1F2937] rounded-3xl space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-[#2EC4B6]/10 rounded-lg">
+                <Cpu className="w-4 h-4 text-[#2EC4B6]" />
+              </div>
+              <h3 className="text-xs font-black text-white uppercase tracking-widest">AI Derived Stability</h3>
+            </div>
+            <div className="relative h-32 flex items-center justify-center">
+              <svg className="w-32 h-32 transform -rotate-90">
+                <circle
+                  cx="64"
+                  cy="64"
+                  r="58"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  className="text-[#111827]"
+                />
+                <circle
+                  cx="64"
+                  cy="64"
+                  r="58"
+                  stroke="currentColor"
+                  strokeWidth="8"
+                  fill="transparent"
+                  strokeDasharray={364.4}
+                  strokeDashoffset={364.4 - (364.4 * (data.terrainStabilityScore || 0)) / 100}
+                  className="text-[#2EC4B6] transition-all duration-1000"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-2xl font-black text-white">{data.terrainStabilityScore || 0}%</span>
+                <span className="text-[8px] font-black text-[#4B5563] uppercase tracking-widest">Stability</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

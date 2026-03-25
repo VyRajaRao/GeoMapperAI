@@ -1,0 +1,113 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: reports
+    // Document ID: {reportId}
+    // Fields:
+    //   - uid: string (required) - The user ID of the report owner.
+    //   - latitude: number (required) - Latitude of the location.
+    //   - longitude: number (required) - Longitude of the location.
+    //   - elevation: number (required) - Elevation in meters.
+    //   - terrainType: string (required) - Type of terrain.
+    //   - slope: number (required) - Slope in degrees.
+    //   - riskLevel: string (required, enum: ['Low', 'Moderate', 'High']) - Risk level assessment.
+    //   - landmarks: list (optional) - List of detected landmarks.
+    //   - createdAt: timestamp (required) - Timestamp of creation.
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function isValidRiskLevel(level) {
+      return level in ['Low', 'Moderate', 'High'];
+    }
+
+    function isValidReport(data) {
+      return data.uid is string &&
+             data.latitude is number &&
+             data.longitude is number &&
+             data.elevation is number &&
+             data.terrainType is string &&
+             data.slope is number &&
+             isValidRiskLevel(data.riskLevel) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidCache(data) {
+      return data.gridKey is string &&
+             data.data is map &&
+             data.lat is number &&
+             data.lng is number &&
+             data.timestamp is number &&
+             data.uid is string;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /reports/{reportId} {
+      // Users can read their own reports
+      allow read: if isDocOwner();
+      
+      // Users can create reports for themselves
+      allow create: if isAuthenticated() && 
+                      isValidReport(request.resource.data) && 
+                      request.resource.data.uid == request.auth.uid;
+      
+      // Users can delete their own reports
+      allow delete: if isDocOwner();
+      
+      // Reports are immutable once created
+      allow update: if false;
+    }
+
+    match /spatial_cache/{cacheId} {
+      // Cache is readable by authenticated users
+      allow read: if isAuthenticated();
+      
+      // Cache is writable by authenticated users
+      allow create: if isAuthenticated() && 
+                      isValidCache(request.resource.data) && 
+                      request.resource.data.uid == request.auth.uid;
+      
+      // Cache can be updated by owner if it's within a reasonable time
+      allow update: if isDocOwner() && isValidCache(request.resource.data);
+    }
+
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

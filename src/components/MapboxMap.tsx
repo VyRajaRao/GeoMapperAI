@@ -3,7 +3,9 @@ import mapboxgl from 'mapbox-gl';
 import MapboxGeocoder from '@mapbox/mapbox-gl-geocoder';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
+import { fetchWeather, WeatherData } from '../services/weatherService';
 import { Landmark } from '../services/overpassService';
+import { ApiClient } from '../services/apiClient';
 
 export interface MapRef {
   zoomIn: () => void;
@@ -27,6 +29,8 @@ interface MapboxMapProps {
     contours: boolean;
   };
   landmarks?: Landmark[];
+  isSidebarOpen?: boolean;
+  hardwareAcceleration?: boolean;
 }
 
 const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({ 
@@ -36,7 +40,9 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
   onMapClick,
   mapStyle = 'mapbox://styles/mapbox/satellite-streets-v12',
   activeLayers,
-  landmarks = []
+  landmarks = [],
+  isSidebarOpen = true,
+  hardwareAcceleration = true
 }, ref) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
@@ -178,14 +184,12 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const response = await fetch('/api/mapbox-token');
-        if (!response.ok) throw new Error('Failed to fetch token');
-        const { token } = await response.json();
+        const { token } = await ApiClient.get<{ token: string }>('/api/mapbox-token');
         
         mapboxgl.accessToken = token;
         initializeMap();
       } catch (err) {
-        console.error('Mapbox error:', err);
+        console.error('[MapboxMap] Token fetch error:', err);
         setError('Map failed to load. Authentication required.');
         setLoading(false);
       }
@@ -249,13 +253,11 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
       });
 
       map.current.on('error', (e: any) => {
-        // Extract error message to avoid circular structure in logs
         const errorMessage = e.error?.message || 'Unknown Mapbox error';
-        console.error('Mapbox error event:', errorMessage);
+        console.error('[MapboxMap] Error event:', errorMessage);
         
-        // Don't show error for every minor style load issue
-        if (errorMessage.includes('Style')) {
-           setError('Map failed to load. Authentication required.');
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Style') || errorMessage.includes('Unauthorized')) {
+           setError('Map failed to load. This usually indicates an invalid or restricted Mapbox Access Token. Please ensure your MAPBOX_ACCESS_TOKEN is correctly configured in the Secrets panel and allows requests from this domain.');
         }
       });
     };
@@ -300,8 +302,16 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
 
     resizeObserver.observe(mapContainer.current);
 
-    return () => resizeObserver.disconnect();
-  }, []);
+    // Explicit resize after sidebar animation completes
+    const timeout = setTimeout(() => {
+      map.current?.resize();
+    }, 400); // Slightly longer than the transition to be safe
+
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [isSidebarOpen]);
 
   // Handle landmarks
   useEffect(() => {
@@ -379,12 +389,15 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
     toggle('risk-heat', !!activeLayers?.riskHeatmap, 'heatmap-opacity', 0.8);
 
     try {
-      map.current.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': activeLayers?.elevation ? 1.5 : 0 });
+      map.current.setTerrain({ 
+        'source': 'mapbox-dem', 
+        'exaggeration': (activeLayers?.elevation && hardwareAcceleration !== false) ? 1.5 : 0 
+      });
     } catch (err) {
       console.warn('Error setting terrain:', err);
     }
 
-  }, [activeLayers]);
+  }, [activeLayers, hardwareAcceleration]);
 
   return (
     <div className="relative w-full h-full bg-[#14222E]">

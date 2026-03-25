@@ -16,12 +16,31 @@
         "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation." }
       },
       "required": ["uid", "latitude", "longitude", "elevation", "terrainType", "slope", "riskLevel", "createdAt"]
+    },
+    "SpatialCache": {
+      "title": "Spatial Cache",
+      "description": "Cached analysis data for a specific grid location.",
+      "type": "object",
+      "properties": {
+        "gridKey": { "type": "string", "description": "The grid-based coordinate key." },
+        "type": { "type": "string", "enum": ["analysis", "weather", "landmarks"], "description": "The type of data cached." },
+        "data": { "type": "object", "description": "The cached data payload." },
+        "lat": { "type": "number", "description": "Original latitude." },
+        "lng": { "type": "number", "description": "Original longitude." },
+        "timestamp": { "type": "number", "description": "Unix timestamp of the cache entry." },
+        "uid": { "type": "string", "description": "The user ID who generated the cache." }
+      },
+      "required": ["gridKey", "type", "data", "lat", "lng", "timestamp", "uid"]
     }
   },
   "firestore": {
     "/reports/{reportId}": {
       "schema": "AnalysisReport",
       "description": "Collection of geological analysis reports."
+    },
+    "/spatial_cache/{cacheId}": {
+      "schema": "SpatialCache",
+      "description": "Collection of cached results (analysis, weather, landmarks)."
     }
   }
 }
