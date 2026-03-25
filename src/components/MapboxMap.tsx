@@ -255,8 +255,8 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
       map.current.on('error', (e: any) => {
         const errorMessage = e.error?.message || 'Unknown Mapbox error';
         console.error('[MapboxMap] Error event:', errorMessage);
-        
-        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Style') || errorMessage.includes('Unauthorized')) {
+        setLoading(false);
+        if (errorMessage.includes('Failed to fetch') || errorMessage.includes('Style') || errorMessage.includes('Unauthorized') || errorMessage.includes('Not Authorized')) {
            setError('Map failed to load. This usually indicates an invalid or restricted Mapbox Access Token. Please ensure your MAPBOX_ACCESS_TOKEN is correctly configured in the Secrets panel and allows requests from this domain.');
         }
       });
