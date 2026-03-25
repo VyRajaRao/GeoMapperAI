@@ -184,6 +184,14 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
   useEffect(() => {
     const fetchToken = async () => {
       try {
+        // Use the build-time environment variable if available
+        const envToken = process.env.MAPBOX_ACCESS_TOKEN;
+        if (envToken && envToken.length > 0) {
+          mapboxgl.accessToken = envToken;
+          initializeMap();
+          return;
+        }
+        // Fall back to the server-side API endpoint
         const { token } = await ApiClient.get<{ token: string }>('/api/mapbox-token');
         
         mapboxgl.accessToken = token;
