@@ -3,8 +3,15 @@ import { createServer as createViteServer } from "vite";
 import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
+
+// Fall back to .env.example when .env is absent (local dev convenience).
+// override: false ensures existing process env vars are never overwritten.
+if (fs.existsSync(".env.example")) {
+  dotenv.config({ path: ".env.example", override: false });
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

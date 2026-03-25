@@ -184,8 +184,14 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        const { token } = await ApiClient.get<{ token: string }>('/api/mapbox-token');
-        
+        let token: string | undefined = process.env.MAPBOX_ACCESS_TOKEN;
+        if (!token) {
+          const result = await ApiClient.get<{ token: string }>('/api/mapbox-token');
+          token = result.token;
+        }
+        if (!token) {
+          throw new Error('Mapbox token not available');
+        }
         mapboxgl.accessToken = token;
         initializeMap();
       } catch (err) {
