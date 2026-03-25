@@ -172,7 +172,12 @@ export default function App() {
     }
 
     try {
-      const { token } = await ApiClient.get<{ token: string }>('/api/mapbox-token');
+      let token: string | undefined = process.env.MAPBOX_ACCESS_TOKEN;
+      if (!token) {
+        const result = await ApiClient.get<{ token: string }>('/api/mapbox-token');
+        token = result.token;
+      }
+      if (!token) throw new Error('Mapbox token not available');
       
       const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lngNum},${latNum}.json?access_token=${token}&types=place,locality,neighborhood,address&limit=1`;
       
