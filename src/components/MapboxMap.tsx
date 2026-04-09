@@ -5,7 +5,6 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import '@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css';
 import { fetchWeather, WeatherData } from '../services/weatherService';
 import { Landmark } from '../services/overpassService';
-import { ApiClient } from '../services/apiClient';
 
 export interface MapRef {
   zoomIn: () => void;
@@ -182,20 +181,19 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
   };
 
   useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const { token } = await ApiClient.get<{ token: string }>('/api/mapbox-token');
-        
-        mapboxgl.accessToken = token;
-        initializeMap();
-      } catch (err) {
-        console.error('[MapboxMap] Token fetch error:', err);
+    const initializeMap = () => {
+      // Get token from environment variable exposed by Vite
+      const token = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || process.env.MAPBOX_ACCESS_TOKEN;
+      
+      if (!token) {
+        console.error('[MapboxMap] Mapbox token not found in environment');
         setError('Map failed to load. Authentication required.');
         setLoading(false);
+        return;
       }
-    };
 
-    const initializeMap = () => {
+      mapboxgl.accessToken = token;
+
       if (!mapContainer.current) return;
 
       map.current = new mapboxgl.Map({
@@ -262,7 +260,7 @@ const MapboxMap = forwardRef<MapRef, MapboxMapProps>(({
       });
     };
 
-    fetchToken();
+    initializeMap();
 
     return () => {
       map.current?.remove();
